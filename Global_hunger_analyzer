@@ -38,8 +38,8 @@ def init_local_db():
     conn.close()
 
 # Cloud Database Configuration (Supabase)
-SUPABASE_URL = os.getenv("SUPABASE_URL", "your_supabase_url")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "your_supabase_api_key")
+SUPABASE_URL = os.getenv(https://avxdullxkpgbunmkineu.supabase.co)
+SUPABASE_KEY = os.getenv(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2eGR1bGx4a3BnYnVubWtpbmV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA3ODM5OTcsImV4cCI6MjA1NjM1OTk5N30.j0JdSxgaFoF0O9bojIt-jS5kunOc23SwTC4ko-Jg5-c"SUPABASE_KEY", "your_supabase_api_key")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def save_to_cloud_db(country, food_insecurity_level, data):
