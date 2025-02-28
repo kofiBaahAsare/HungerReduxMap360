@@ -1,0 +1,146 @@
+t numpy as np
+import joblib
+import json
+import requests
+import pycountry
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+from supabase import create_client, Client
+from fpdf import FPDF
+
+# Define App Name
+APP_NAME = "Hybrid AI-Powered Hunger Reduction Analysis System"
+
+# Automated Dependency Installation and Requirements File Creation
+def install_dependencies():
+    dependencies = ["streamlit", "pandas", "numpy", "joblib", "supabase", "requests", "pycountry", "matplotlib", "seaborn", "fpdf"]
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install"] + dependencies)
+    except Exception as e:
+        print(f"Error installing dependencies: {e}")
+
+# Automated Database Initialization
+def init_local_db():
+    conn = sqlite3.connect("local_hunger_db.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS hunger_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            country TEXT,
+            food_insecurity_level TEXT,
+            data TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# Cloud Database Configuration (Supabase)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "your_supabase_url")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "your_supabase_api_key")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+def save_to_cloud_db(country, food_insecurity_level, data):
+    try:
+        response = supabase.table("hunger_data").insert({
+            "timestamp": datetime.now().isoformat(),
+            "country": country,
+            "food_insecurity_level": food_insecurity_level,
+            "data": json.dumps(data)
+        }).execute()
+        return response
+    except Exception as e:
+        print(f"Error saving to cloud database: {e}")
+
+# Fetching ISO Country Names
+def get_country_names():
+    return sorted([country.name for country in pycountry.countries])
+
+# Automated Data Fetching from Public Sources
+def fetch_hunger_data():
+    url = "https://api.worldbank.org/v2/country/all/indicator/SN.ITK.DEFC.ZS?format=json"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+    return None
+
+# Save Data to Local Database
+def save_to_local_db(country, food_insecurity_level, data):
+    conn = sqlite3.connect("local_hunger_db.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO hunger_data (timestamp, country, food_insecurity_level, data) VALUES (?, ?, ?, ?)", 
+                   (datetime.now(), country, food_insecurity_level, json.dumps(data)))
+    conn.commit()
+    conn.close()
+
+# Synchronization between Local and Cloud Databases
+def sync_databases():
+    conn = sqlite3.connect("local_hunger_db.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM hunger_data")
+    local_data = cursor.fetchall()
+    conn.close()
+    
+    for entry in local_data:
+        save_to_cloud_db(entry[2], entry[3], json.loads(entry[4]))
+
+# Generate PDF Report
+def generate_report(country, food_insecurity_level, data):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, f"Hunger Analysis Report - {country}", ln=True, align='C')
+    pdf.ln(10)
+    pdf.cell(200, 10, f"Food Insecurity Level: {food_insecurity_level}", ln=True)
+    pdf.ln(10)
+    pdf.multi_cell(0, 10, f"Data Summary:\n{json.dumps(data, indent=4)}")
+    pdf.output("Hunger_Analysis_Report.pdf")
+
+# Main Application UI
+def main():
+    st.set_page_config(page_title=APP_NAME, layout="wide")
+    st.title(APP_NAME)
+    st.sidebar.header("Navigation")
+    menu = ["Home", "Hunger Analysis", "Predictions", "Settings"]
+    choice = st.sidebar.selectbox("Menu", menu)
+    
+    if choice == "Home":
+        st.subheader("Welcome to the AI-Powered Hunger Reduction Analysis System")
+        st.write("This application automates data processing, analysis, and reporting for food security and hunger reduction.")
+        
+    elif choice == "Hunger Analysis":
+        st.subheader("Fetching and Analyzing Hunger Data")
+        country = st.selectbox("Select Country", get_country_names())
+        food_insecurity_level = st.selectbox("Select Food Insecurity Level", ["Low", "Moderate", "High", "Severe"])
+        if st.button("Fetch Data"):
+            data = fetch_hunger_data()
+            if data:
+                st.json(data)
+                save_to_local_db(country, food_insecurity_level, data)
+                save_to_cloud_db(country, food_insecurity_level, data)
+                generate_report(country, food_insecurity_level, data)
+                st.success("Hunger data successfully fetched and saved!")
+                st.download_button(label="Download Report", data=open("Hunger_Analysis_Report.pdf", "rb").read(), file_name="Hunger_Analysis_Report.pdf")
+            else:
+                st.error("Failed to retrieve hunger data.")
+        
+    elif choice == "Predictions":
+        st.subheader("AI-Based Hunger Predictions")
+        st.write("Feature in Development")
+        
+    elif choice == "Settings":
+        st.subheader("Configuration Settings")
+        st.write("Manage preferences and system settings here.")
+        if st.button("Sync Local & Cloud Data"):
+            sync_databases()
+            st.success("Local database synchronized with cloud storage.")
+        
+if __name__ == "__main__":
+    install_dependencies()
+    init_local_db()
+    main()
